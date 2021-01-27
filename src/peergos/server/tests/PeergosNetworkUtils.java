@@ -1412,6 +1412,10 @@ public class PeergosNetworkUtils {
         String friends = social.getFriendsGroupUid();
         sharer.shareReadAccessWithAll(sharer.getByPath(dirToShare1).join().get(), dirToShare1, Set.of(friends)).join();
 
+        FileSharedWithState fileSharedWithState = sharer.sharedWith(dirToShare1).join();
+        Assert.assertTrue(fileSharedWithState.readAccess.size() == 1);
+        Assert.assertTrue(fileSharedWithState.readAccess.contains(friends));
+
         Optional<FileWrapper> dir = friend.getByPath(dirToShare1).join();
         Assert.assertTrue(dir.isPresent());
 
