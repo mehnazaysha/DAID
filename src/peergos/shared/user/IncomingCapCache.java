@@ -389,7 +389,7 @@ public class IncomingCapCache {
                         (d, e) -> NetworkAccess.getLatestEntryPoint(e, network)
                                 .thenCompose(sharedDir -> retrieveNewCaps(e,
                                         current.groups.getOrDefault(sharedDir.file.getName(), ProcessedCaps.empty()), network, crypto)
-                                .thenApply(diff -> current.createGroupDiff(sharedDir.file.getName(), diff))),
+                                .thenApply(diff -> d.mergeGroups(current.createGroupDiff(sharedDir.file.getName(), diff)))),
                         (a, b) -> a.mergeGroups(b)));
     }
 
@@ -446,7 +446,6 @@ public class IncomingCapCache {
                                                            CapsDiff diff,
                                                            NetworkAccess network) {
         List<CapabilityWithPath> all = diff.getNewCaps();
-
         // Add all new caps to mirror tree
         return Futures.reduceAll(all, worldRoot, (r, c) -> addCapToMirror(friend, r, c, crypto, network), (a, b) -> b)
                 .thenCompose(updatedWorldRoot -> {
