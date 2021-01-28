@@ -1404,10 +1404,10 @@ public class PeergosNetworkUtils {
 
         // friend sharer with others
         friendBetweenGroups(Arrays.asList(sharer), shareeUsers);
-        String dir1 = "one";
-        sharer.getUserRoot().join().mkdir(dir1, sharer.network, false, sharer.crypto).join();
+        String dirName = "one";
+        sharer.getUserRoot().join().mkdir(dirName, sharer.network, false, sharer.crypto).join();
 
-        Path dirToShare1 = Paths.get(sharer.username, dir1);
+        Path dirToShare1 = Paths.get(sharer.username, dirName);
         SocialState social = sharer.getSocialState().join();
         String friends = social.getFriendsGroupUid();
         sharer.shareReadAccessWithAll(sharer.getByPath(dirToShare1).join().get(), dirToShare1, Set.of(friends)).join();
@@ -1418,6 +1418,11 @@ public class PeergosNetworkUtils {
 
         Optional<FileWrapper> dir = friend.getByPath(dirToShare1).join();
         Assert.assertTrue(dir.isPresent());
+
+        Optional<FileWrapper> home = friend.getByPath(Paths.get(sharer.username)).join();
+        Assert.assertTrue(home.isPresent());
+        Optional<FileWrapper> dirViaGetChild = home.get().getChild(dirName, sharer.crypto.hasher, sharer.network).join();
+        Assert.assertTrue(dirViaGetChild.isPresent());
 
         // remove friend, which should rotate all keys of things shared with the friends group
         sharer.removeFollower(friend.username).join();

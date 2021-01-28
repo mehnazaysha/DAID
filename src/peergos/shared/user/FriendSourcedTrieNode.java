@@ -79,15 +79,7 @@ public class FriendSourcedTrieNode implements TrieNode {
         return file.withTrieNode(new FriendDirTrieNode(path, this));
     }
 
-    @Override
-    public synchronized CompletableFuture<Optional<FileWrapper>> getByPath(String path,
-                                                                           Hasher hasher,
-                                                                           NetworkAccess network) {
-        FileProperties.ensureValidPath(path);
-        if (path.isEmpty() || path.equals("/"))
-            return getFriendRoot(network)
-                    .thenApply(opt -> opt.map(f -> f.withTrieNode(this)));
-        Path file = Paths.get(ownerName + path);
+    private CompletableFuture<Boolean> updateIncludingGroups(NetworkAccess network) {
         return ensureUptodate(crypto, network)
                 .thenCompose(x -> {
                     List<CapabilityWithPath> newGroups = x.getNewCaps().stream()
@@ -100,7 +92,19 @@ public class FriendSourcedTrieNode implements TrieNode {
                         return Futures.of(true);
                     return ensureUptodate(crypto, network)
                             .thenApply(y -> true);
-                })
+                });
+    }
+
+    @Override
+    public synchronized CompletableFuture<Optional<FileWrapper>> getByPath(String path,
+                                                                           Hasher hasher,
+                                                                           NetworkAccess network) {
+        FileProperties.ensureValidPath(path);
+        if (path.isEmpty() || path.equals("/"))
+            return getFriendRoot(network)
+                    .thenApply(opt -> opt.map(f -> f.withTrieNode(this)));
+        Path file = Paths.get(ownerName + path);
+        return updateIncludingGroups(network)
                 .thenCompose(y -> cache.getByPath(file, cache.getVersion(), hasher, network))
                 .thenApply(opt -> opt.map(f -> convert(f, path)));
     }
@@ -115,7 +119,8 @@ public class FriendSourcedTrieNode implements TrieNode {
             return getFriendRoot(network)
                     .thenApply(opt -> opt.map(f -> f.withTrieNode(this)));
         Path file = Paths.get(ownerName + path);
-        return cache.getByPath(file, version, hasher, network)
+        return updateIncludingGroups(network)
+                .thenCompose(y -> cache.getByPath(file, version, hasher, network))
                 .thenApply(opt -> opt.map(f -> convert(f, path)));
     }
 
@@ -125,7 +130,7 @@ public class FriendSourcedTrieNode implements TrieNode {
                                                                         NetworkAccess network) {
         FileProperties.ensureValidPath(path);
         Path dir = Paths.get(ownerName + path);
-        return ensureUptodate(crypto, network)
+        return updateIncludingGroups(network)
                 .thenCompose(x -> cache.getChildren(dir, cache.getVersion(), hasher, network))
                 .thenApply(children -> children.stream()
                         .map(f -> convert(f, path + "/" + f.getName()))
