@@ -1426,6 +1426,39 @@ public class PeergosNetworkUtils {
         Assert.assertTrue(dir2.isEmpty());
     }
 
+    public static void groupSharingToFollowers(NetworkAccess network, Random random) {
+        CryptreeNode.setMaxChildLinkPerBlob(10);
+
+        String password = "notagoodone";
+        UserContext sharer = PeergosNetworkUtils.ensureSignedUp(generateUsername(random), password, network, crypto);
+
+        List<UserContext> shareeUsers = getUserContextsForNode(network.clear(), random, 2, Arrays.asList(password, password));
+        UserContext friend = shareeUsers.get(0);
+
+        // make others follow sharer
+        followBetweenGroups(Arrays.asList(sharer), shareeUsers);
+        String dir1 = "one";
+        sharer.getUserRoot().join().mkdir(dir1, sharer.network, false, sharer.crypto).join();
+
+        Path dirToShare1 = Paths.get(sharer.username, dir1);
+        SocialState social = sharer.getSocialState().join();
+        String followers = social.getFollowersGroupUid();
+        sharer.shareReadAccessWithAll(sharer.getByPath(dirToShare1).join().get(), dirToShare1, Set.of(followers)).join();
+
+        FileSharedWithState fileSharedWithState = sharer.sharedWith(dirToShare1).join();
+        Assert.assertTrue(fileSharedWithState.readAccess.size() == 1);
+        Assert.assertTrue(fileSharedWithState.readAccess.contains(followers));
+
+        Optional<FileWrapper> dir = friend.getByPath(dirToShare1).join();
+        Assert.assertTrue(dir.isPresent());
+
+        // remove friend, which should rotate all keys of things shared with the friends group
+        sharer.removeFollower(friend.username).join();
+
+        Optional<FileWrapper> dir2 = friend.getByPath(dirToShare1).join();
+        Assert.assertTrue(dir2.isEmpty());
+    }
+
     public static List<Set<AbsoluteCapability>> getAllChildCapsByChunk(FileWrapper dir, NetworkAccess network) {
         return getAllChildCapsByChunk(dir.getPointer().capability, dir.getPointer().fileAccess, dir.version, network);
     }
@@ -1531,7 +1564,7 @@ public class PeergosNetworkUtils {
     public static void friendBetweenGroups(List<UserContext> a, List<UserContext> b) {
         for (UserContext userA : a) {
             for (UserContext userB : b) {
-                // send intiail request
+                // send intial request
                 userA.sendFollowRequest(userB.username, SymmetricKey.random()).join();
 
                 // make sharer reciprocate all the follow requests
@@ -1546,6 +1579,28 @@ public class PeergosNetworkUtils {
 
                 // complete the friendship connection
                 userA.processFollowRequests().join();
+            }
+        }
+    }
+
+    public static void followBetweenGroups(List<UserContext> sharers, List<UserContext> followers) {
+        for (UserContext userA : sharers) {
+            for (UserContext userB : followers) {
+                // send intial request
+                userB.sendFollowRequest(userA.username, SymmetricKey.random()).join();
+
+                // make sharer reciprocate all the follow requests
+                List<FollowRequestWithCipherText> sharerRequests = userA.processFollowRequests().join();
+                for (FollowRequestWithCipherText u1Request : sharerRequests) {
+                    AbsoluteCapability pointer = u1Request.req.entry.get().pointer;
+                    Assert.assertTrue("Read only capabilities are shared", ! pointer.wBaseKey.isPresent());
+                    boolean accept = true;
+                    boolean reciprocate = false;
+                    userA.sendReplyFollowRequest(u1Request, accept, reciprocate).join();
+                }
+
+                // complete the friendship connection
+                userB.processFollowRequests().join();
             }
         }
     }
