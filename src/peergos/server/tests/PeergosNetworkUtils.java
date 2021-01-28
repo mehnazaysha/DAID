@@ -1416,9 +1416,11 @@ public class PeergosNetworkUtils {
         Assert.assertTrue(fileSharedWithState.readAccess.size() == 1);
         Assert.assertTrue(fileSharedWithState.readAccess.contains(friends));
 
-        Optional<FileWrapper> dir = friend.getByPath(dirToShare1).join();
+        //friend = PeergosNetworkUtils.ensureSignedUp(friend.username, password, network, crypto);
+        Optional<FileWrapper> dir = friend.getByPath(Paths.get(sharer.username)).join();
         Assert.assertTrue(dir.isPresent());
-
+        Optional<FileWrapper> file = dir.get().getChild(dir1, sharer.crypto.hasher, sharer.network).join();
+        Assert.assertTrue(file.isPresent());
         // remove friend, which should rotate all keys of things shared with the friends group
         sharer.removeFollower(friend.username).join();
 
