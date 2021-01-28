@@ -27,10 +27,10 @@ public class FriendSourcedTrieNode implements TrieNode {
         this.ownerName = ownerName;
         this.sharedDir = sharedDir;
         this.crypto = crypto;
-        this.groups = Collections.synchronizedList(new ArrayList<>());
+        this.groups = new ArrayList<>();
     }
 
-    public void addGroup(EntryPoint group) {
+    public synchronized void addGroup(EntryPoint group) {
         if (! groups.contains(group))
             groups.add(group);
     }
