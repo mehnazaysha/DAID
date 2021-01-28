@@ -119,8 +119,7 @@ public class FriendSourcedTrieNode implements TrieNode {
             return getFriendRoot(network)
                     .thenApply(opt -> opt.map(f -> f.withTrieNode(this)));
         Path file = Paths.get(ownerName + path);
-        return updateIncludingGroups(network)
-                .thenCompose(y -> cache.getByPath(file, version, hasher, network))
+        return cache.getByPath(file, version, hasher, network)
                 .thenApply(opt -> opt.map(f -> convert(f, path)));
     }
 
