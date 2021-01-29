@@ -1980,11 +1980,11 @@ public class UserContext {
                 .thenCompose(opt -> {
                     if (opt.isEmpty())
                         return Futures.of(true);
-                    return CapabilityStore.loadReadAccessSharingLinksFromIndex(null, opt.get(), null,
-                            network, crypto, 0, false, false)
+                    return CapabilityStore.loadReadAccessSharingLinksFromIndex(null, opt.get(),
+                            network, crypto, 0)
                             .thenCompose(readCaps -> revokeAllReadCaps(readCaps.getRetrievedCapabilities(), usernameToRevoke))
-                            .thenCompose(x -> CapabilityStore.loadWriteAccessSharingLinksFromIndex(null, opt.get(), null,
-                                    network, crypto, 0, false, false)
+                            .thenCompose(x -> CapabilityStore.loadWriteAccessSharingLinksFromIndex(null, opt.get(),
+                                    network, crypto, 0)
                                     .thenCompose(writeCaps -> revokeAllWriteCaps(writeCaps.getRetrievedCapabilities(), usernameToRevoke)));
                 });
     }

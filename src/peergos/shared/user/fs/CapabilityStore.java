@@ -183,44 +183,39 @@ public class CapabilityStore {
 
     public static CompletableFuture<CapabilitiesFromUser> loadReadAccessSharingLinksFromIndex(FileWrapper cacheDir,
                                                                                               FileWrapper friendSharedDir,
-                                                                                              String friendName,
                                                                                               NetworkAccess network,
                                                                                               Crypto crypto,
-                                                                                              long startOffset,
-                                                                                              boolean saveCache,
-                                                                                              boolean inbound) {
+                                                                                              long startOffset) {
 
-        return loadSharingLinksFromIndex(cacheDir, friendSharedDir, friendName, network, crypto,
-                startOffset, saveCache, inbound, READ_SHARING_FILE_NAME);
+        return loadSharingLinksFromIndex(cacheDir, friendSharedDir, network, crypto,
+                startOffset, READ_SHARING_FILE_NAME);
     }
 
     public static CompletableFuture<CapabilitiesFromUser> loadWriteAccessSharingLinksFromIndex(FileWrapper cacheDir,
                                                                                                FileWrapper friendSharedDir,
-                                                                                               String friendName,
                                                                                                NetworkAccess network,
                                                                                                Crypto crypto,
-                                                                                               long startOffset,
-                                                                                               boolean saveCache,
-                                                                                               boolean inbound) {
+                                                                                               long startOffset) {
 
-        return loadSharingLinksFromIndex(cacheDir, friendSharedDir, friendName, network, crypto,
-                startOffset, saveCache, inbound, EDIT_SHARING_FILE_NAME);
+        return loadSharingLinksFromIndex(cacheDir, friendSharedDir, network, crypto,
+                startOffset, EDIT_SHARING_FILE_NAME);
     }
 
     private static CompletableFuture<CapabilitiesFromUser> loadSharingLinksFromIndex(FileWrapper cacheDir,
                                                                                      FileWrapper friendSharedDir,
-                                                                                     String friendName,
                                                                                      NetworkAccess network,
                                                                                      Crypto crypto,
                                                                                      long startOffset,
-                                                                                     boolean saveCache,
-                                                                                     boolean inbound,
                                                                                      String capFilename) {
+        System.out.println("kev-loadSharingLinksFromIndex");
         return friendSharedDir.getChild(capFilename, crypto.hasher, network)
                 .thenCompose(file -> {
-                    if (! file.isPresent())
+                    if (! file.isPresent()) {
+                        System.out.println("kev-loadSharingLinksFromIndex=filenotpresent");
                         return Futures.of(CapabilitiesFromUser.empty());
+                    }
                     long capFileSize = file.get().getSize();
+                    System.out.println("kev-capFileSize=" + capFileSize);
                     if (capFileSize == startOffset)
                         return Futures.of(CapabilitiesFromUser.empty());
                     return readSharingFile(startOffset, friendSharedDir.getName(), friendSharedDir.owner(), file.get(), network, crypto)

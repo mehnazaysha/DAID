@@ -384,15 +384,21 @@ public class IncomingCapCache {
                                                    ProcessedCaps current,
                                                    NetworkAccess network) {
         return retrieveNewCaps(originalSharedDir, current, network, crypto)
-                .thenCompose(direct -> Futures.reduceAll(groups,
-                        direct,
-                        (d, e) -> NetworkAccess.getLatestEntryPoint(e, network)
-                                .thenCompose(sharedDir -> retrieveNewCaps(e,
-                                        current.groups.getOrDefault(sharedDir.file.getName(), ProcessedCaps.empty()), network, crypto)
-                                .thenApply(diff -> d.mergeGroups(current.createGroupDiff(sharedDir.file.getName(), diff)))),
-                        (a, b) -> a.mergeGroups(b)));
+                .thenCompose(direct -> {
+                    System.out.println("kev-diff newcaps=" + direct.getNewCaps().size());
+                    return reduceAll(direct, groups, current, network);});
     }
-
+    private CompletableFuture<CapsDiff> reduceAll(CapsDiff direct, List<EntryPoint> groups, ProcessedCaps current,
+                                                  NetworkAccess network) {
+        System.out.println("kev-groups size=" + groups.size());
+        return Futures.reduceAll(groups,
+                direct,
+                (d, e) -> NetworkAccess.getLatestEntryPoint(e, network)
+                        .thenCompose(sharedDir -> retrieveNewCaps(e,
+                                current.groups.getOrDefault(sharedDir.file.getName(), ProcessedCaps.empty()), network, crypto)
+                                .thenApply(diff -> d.mergeGroups(current.createGroupDiff(sharedDir.file.getName(), diff)))),
+                (a, b) -> a.mergeGroups(b))  ;
+    }
     private static CompletableFuture<CapsDiff> retrieveNewCaps(EntryPoint sharingDir,
                                                                ProcessedCaps current,
                                                                NetworkAccess network,
@@ -407,12 +413,14 @@ public class IncomingCapCache {
                                                                NetworkAccess network,
                                                                Crypto crypto) {
         return CapabilityStore.loadReadAccessSharingLinksFromIndex(null, sharedDir.file,
-                null, network, crypto, readCapBytes, false, true)
-                .thenCompose(newReadCaps ->
-                        getWritableCaps(sharedDir.file, writeCapBytes, crypto, network)
+                network, crypto, readCapBytes)
+                .thenCompose(newReadCaps -> {
+                    System.out.println("kev-retrieveNewCaps=" + newReadCaps.getRetrievedCapabilities().size());
+                        return getWritableCaps(sharedDir.file, writeCapBytes, crypto, network)
                                 .thenApply(writeable ->
-                                        new CapsDiff.ReadAndWriteCaps(newReadCaps, writeable)))
-                .thenApply(newCaps -> new CapsDiff(readCapBytes, writeCapBytes, newCaps, Collections.emptyMap()));
+                                        new CapsDiff.ReadAndWriteCaps(newReadCaps, writeable));})
+                .thenApply(newCaps -> {
+                    return new CapsDiff(readCapBytes, writeCapBytes, newCaps, Collections.emptyMap());});
     }
 
     private synchronized CompletableFuture<CapsDiff> ensureUptodate(String friend,
@@ -422,6 +430,7 @@ public class IncomingCapCache {
                                                                     Crypto crypto,
                                                                     NetworkAccess network) {
         // check there are no new capabilities in the friend's shared directory, or any of their groups
+        System.out.println("kev-ensureUptodate" + friend);
         return getCapsFrom(friend, originalSharedDir, groups, current, network)
                 .thenCompose(diff -> addNewCapsToMirror(friend, current, diff, network))
                 .thenCompose(diff -> getAndUpdateWorldRoot(network)
@@ -436,8 +445,7 @@ public class IncomingCapCache {
                 .thenCompose(editFilesize -> {
                     if (editFilesize == byteOffsetWrite)
                         return CompletableFuture.completedFuture(CapabilitiesFromUser.empty());
-                    return CapabilityStore.loadWriteAccessSharingLinksFromIndex(null, sharedDir,
-                            null, network, crypto, byteOffsetWrite, false, true);
+                    return CapabilityStore.loadWriteAccessSharingLinksFromIndex(null, sharedDir, network, crypto, byteOffsetWrite);
                 });
     }
 
@@ -445,6 +453,7 @@ public class IncomingCapCache {
                                                            ProcessedCaps current,
                                                            CapsDiff diff,
                                                            NetworkAccess network) {
+        System.out.println("kev-addNewCapsToMirror size=" + diff.getNewCaps().size());
         List<CapabilityWithPath> all = diff.getNewCaps();
         // Add all new caps to mirror tree
         return Futures.reduceAll(all, worldRoot, (r, c) -> addCapToMirror(friend, r, c, crypto, network), (a, b) -> b)

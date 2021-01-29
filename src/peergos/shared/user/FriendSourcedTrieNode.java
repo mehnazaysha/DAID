@@ -80,11 +80,13 @@ public class FriendSourcedTrieNode implements TrieNode {
     }
 
     private CompletableFuture<Boolean> updateIncludingGroups(NetworkAccess network) {
+        System.out.println("kev-updateIncludingGroups");
         return ensureUptodate(crypto, network)
                 .thenCompose(x -> {
                     List<CapabilityWithPath> newGroups = x.getNewCaps().stream()
                             .filter(c -> c.path.startsWith("/" + ownerName + "/" + UserContext.SHARED_DIR_NAME))
                             .collect(Collectors.toList());
+                    System.out.println("kev-newGroups=" + newGroups.size());
                     for (CapabilityWithPath groupCap : newGroups) {
                         addGroup(new EntryPoint(groupCap.cap, ownerName));
                     }
@@ -119,7 +121,8 @@ public class FriendSourcedTrieNode implements TrieNode {
             return getFriendRoot(network)
                     .thenApply(opt -> opt.map(f -> f.withTrieNode(this)));
         Path file = Paths.get(ownerName + path);
-        return cache.getByPath(file, version, hasher, network)
+        return updateIncludingGroups(network)
+                .thenCompose(y -> cache.getByPath(file, version, hasher, network))
                 .thenApply(opt -> opt.map(f -> convert(f, path)));
     }
 
