@@ -313,6 +313,53 @@ public class PeergosNetworkUtils {
                 throw new IllegalStateException("Different at index " + i);
     }
 
+    public static void shareThenUnshareThenNavigate(NetworkAccess sharerNode, Random random) {
+        //sign up a user on sharerNode
+        String sharerUsername = generateUsername(random);
+        String sharerPassword = generatePassword();
+        UserContext sharerUser = ensureSignedUp(sharerUsername, sharerPassword, sharerNode.clear(), crypto);
+
+        String shareeUsername = generateUsername(random);
+        String shareePassword = generatePassword();
+        UserContext shareeUser = ensureSignedUp(shareeUsername, shareePassword, sharerNode.clear(), crypto);
+
+        // friend sharer with others
+        friendBetweenGroups(Arrays.asList(sharerUser), Arrays.asList(shareeUser));
+
+
+        String dirName = "test";
+        sharerUser.getUserRoot().join().mkdir(dirName, sharerNode, false, crypto).join();
+        Path dirPath = Paths.get(sharerUsername, dirName);
+        FileWrapper dirFolder = sharerUser.getByPath(dirPath).join().get();
+
+        String subDirName = "subdir";
+        dirFolder.mkdir(subDirName, sharerNode, false, crypto).join();
+        Path subDirPath = Paths.get(sharerUsername, dirName, subDirName);
+        sharerUser.shareWriteAccessWith(subDirPath, Collections.singleton(shareeUsername)).join();
+        dirFolder = sharerUser.getByPath(dirPath).join().get();
+        FileWrapper subDirFolder = sharerUser.getByPath(subDirPath).join().get();
+
+        Optional<FileWrapper> sharedFolder = shareeUser.getByPath(subDirPath).join();
+        Assert.assertTrue("shared subdir folder present", sharedFolder.isPresent());
+        //create file
+        String filename = "somefile.txt";
+        byte[] originalFileContents = shareeUser.crypto.random.randomBytes(10*1024*1024);
+        AsyncReader resetableFileInputStream = AsyncReader.build(originalFileContents);
+        FileWrapper uploaded = sharedFolder.get().uploadOrReplaceFile(filename, resetableFileInputStream, originalFileContents.length,
+                shareeUser.network, shareeUser.crypto, l -> {}, shareeUser.crypto.random.randomBytes(32)).join();
+
+        try {
+            FileWrapper updatedParent = subDirFolder.remove(dirFolder, subDirPath, sharerUser).join();
+        } catch (Throwable ise) {
+            System.currentTimeMillis(); //Expected exception because sharer's ref to subDirFolder is out of date
+        }
+        //But why is sharee now unable to navigate to directories ?
+        Optional<FileWrapper> sharersHome = shareeUser.getByPath(Paths.get(sharerUsername)).join();
+        Assert.assertTrue("shared folder present", sharersHome.isPresent());
+        sharersHome.get().getChildren(sharerUser.crypto.hasher, sharerUser.network).join();
+        System.currentTimeMillis();
+    }
+
     public static void shareFileWithDifferentSigner(NetworkAccess sharerNode,
                                                     NetworkAccess shareeNode,
                                                     Random random) {
