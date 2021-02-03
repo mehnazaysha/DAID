@@ -21,6 +21,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.stream.*;
 
 import static org.junit.Assert.assertTrue;
@@ -204,6 +205,11 @@ public class MultiUserTests {
     }
 
     @Test
+    public void shareAndShareOn() {
+        PeergosNetworkUtils.shareAndShareOn(network, random);
+    }
+
+    @Test
     public void groupAwareSharingReadAccess() {
         TriFunction<UserContext, Path, Set<String>, CompletableFuture<Boolean>> shareFunction =
                 (u1, dirToShare, usersToAdd) ->
@@ -212,8 +218,8 @@ public class MultiUserTests {
         TriFunction<UserContext, Path, Set<String>, CompletableFuture<Boolean>> unshareFunction =
                 (u1, dirToShare, usersToRemove) -> u1.unShareReadAccessWith(dirToShare, usersToRemove);
 
-        TriFunction<UserContext, Path, FileSharedWithState, Integer> resultFunc =
-                (u1, dirToShare, fileSharedWithState) -> u1.sharedWith(dirToShare).join().readAccess.size();
+        BiFunction<UserContext, Path, Integer> resultFunc =
+                (u1, dirToShare) -> u1.sharedWith(dirToShare).join().readAccess.size();
 
         PeergosNetworkUtils.groupAwareSharing(network, random, shareFunction, unshareFunction, resultFunc);
     }
@@ -226,8 +232,8 @@ public class MultiUserTests {
         TriFunction<UserContext, Path, Set<String>, CompletableFuture<Boolean>> unshareFunction =
                 (u1, dirToShare, usersToRemove) ->
                         u1.unShareWriteAccessWith(dirToShare, usersToRemove);
-        TriFunction<UserContext, Path, FileSharedWithState, Integer> resultFunc =
-                (u1, dirToShare, fileSharedWithState) -> u1.sharedWith(dirToShare).join().writeAccess.size();
+        BiFunction<UserContext, Path, Integer> resultFunc =
+                (u1, dirToShare) -> u1.sharedWith(dirToShare).join().writeAccess.size();
 
         PeergosNetworkUtils.groupAwareSharing(network, random, shareFunction, unshareFunction, resultFunc);
     }
