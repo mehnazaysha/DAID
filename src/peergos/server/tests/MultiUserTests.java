@@ -220,6 +220,11 @@ public class MultiUserTests {
     }
 
     @Test
+    public void messagingTest() {
+        PeergosNetworkUtils.messagingTest(network, random);
+    }
+
+    @Test
     public void groupSharingToFollowers() {
         PeergosNetworkUtils.groupSharingToFollowers(network, random);
     }

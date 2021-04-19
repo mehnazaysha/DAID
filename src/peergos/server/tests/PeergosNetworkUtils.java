@@ -5,6 +5,7 @@ import peergos.server.*;
 import peergos.server.storage.ResetableFileInputStream;
 import peergos.shared.Crypto;
 import peergos.shared.NetworkAccess;
+import peergos.shared.crypto.asymmetric.PublicBoxingKey;
 import peergos.shared.crypto.hash.*;
 import peergos.shared.crypto.symmetric.SymmetricKey;
 import peergos.shared.io.ipfs.multihash.Multihash;
@@ -1685,6 +1686,99 @@ public class PeergosNetworkUtils {
         List<Message> messagesA = controllerA.getMessages(0, 10).join();
         Assert.assertEquals(messagesA.size(), 5);
         Assert.assertArrayEquals(messagesA.get(messagesA.size() - 1).payload, msg2);
+    }
+
+    public static void messagingTest(NetworkAccess network, Random random) {
+        CryptreeNode.setMaxChildLinkPerBlob(10);
+
+        String password = "notagoodone";
+
+        UserContext a = PeergosNetworkUtils.ensureSignedUp(generateUsername(random), password, network, crypto);
+
+        List<UserContext> shareeUsers = getUserContextsForNode(network, random, 1, Arrays.asList(password));
+        UserContext b = shareeUsers.get(0);
+
+        // friend sharer with others
+        friendBetweenGroups(Arrays.asList(a), shareeUsers);
+
+        SocialFeed socialFeedA = a.getSocialFeed().join();
+        socialFeedA = socialFeedA.update().join();
+
+        Messenger msgA = new Messenger(a);
+        SocialState socialStateA = a.getSocialState().join();
+        int pageStartIndex = socialFeedA.getLastSeenIndex();
+        Set<ChatController> chatsOrig = msgA.listChats().join();
+
+        List<SharedItem> items = socialFeedA.getShared(0, 1000, a.crypto, a.network).join();
+        List<Pair<SharedItem, FileWrapper>> pairs = a.getFiles(items).join();
+
+        //refreshUI
+        Set<ChatController> chats = msgA.listChats().join();
+        ChatController controller = msgA.createChat().join();
+        Message.ConversationTitleMessage msg = new Message.ConversationTitleMessage(a.username, "new conversation", LocalDateTime.now());
+        ChatController updatedController = msgA.sendMessage(controller, msg.serialize()).join();
+        Optional<Pair<PublicKeyHash, PublicBoxingKey>> pkOpt = a.getPublicKeys(b.username).join();
+        ChatController updatedController2 = msgA.invite(updatedController, b.username, pkOpt.get().left).join();
+        Message.StatusMessage invitationMsg = new Message.StatusMessage("invitation", LocalDateTime.now());
+        ChatController updatedController3 = msgA.sendMessage(updatedController2, invitationMsg.serialize()).join();
+
+        //refreshConversation
+        ChatController updatedController4 = msgA.mergeAllUpdates(updatedController3, socialStateA).join();
+        Pair<Integer, List<Message.ChatMessage>> result0 = updatedController4.getFilteredMessages(0, 1000).join();
+
+        //sendMessage
+        Message.TextMessage txtMsg = new Message.TextMessage(a.username, "message1", LocalDateTime.now());
+        ChatController updatedController5 = msgA.sendMessage(updatedController4, txtMsg.serialize()).join();
+        ChatController updatedController6 = msgA.mergeAllUpdates(updatedController5, socialStateA).join();
+        Pair<Integer, List<Message.ChatMessage>> result = updatedController6.getFilteredMessages(4, 1000).join();
+        System.out.println(result.right.toString());
+        Assert.assertTrue(result.right.size() == 1);
+
+
+        //Now B
+        SocialFeed socialFeedB = b.getSocialFeed().join();
+        socialFeedB = socialFeedB.update().join();
+        SocialState socialStateB = b.getSocialState().join();
+        Messenger msgB = new peergos.shared.messaging.Messenger(b);
+        int lastSeenIndexB = socialFeedB.getLastSeenIndex();
+        Set<ChatController> chatsB = msgB.listChats().join();
+
+        List<SharedItem> itemsB = socialFeedB.getShared(0, 1000, b.crypto, b.network).join();
+        List<Pair<SharedItem, FileWrapper>> pairsB = b.getFiles(itemsB).join();
+        ChatController res = msgB.cloneLocallyAndJoin(pairsB.get(2).right).join();
+
+        Set<ChatController> chatsB2 = msgB.listChats().join();
+        ChatController chatB = chatsB2.stream().collect(Collectors.toList()).get(0);
+        ChatController updatedController10 = msgB.mergeAllUpdates(chatB, socialStateB).join();
+        Pair<Integer, List<Message.ChatMessage>> resultB = updatedController10.getFilteredMessages(0, 10000).join();
+        System.out.println(resultB.right.toString());
+        Assert.assertTrue(resultB.right.size() == 3);
+
+
+        Message.TextMessage txtMsgB = new Message.TextMessage(b.username, "responseFromB", LocalDateTime.now());
+        ChatController updatedController11 = msgB.sendMessage(updatedController10, txtMsgB.serialize()).join();
+
+        ChatController updatedController12 = msgB.mergeAllUpdates(updatedController11, socialStateB).join();
+        Pair<Integer, List<Message.ChatMessage>> result2 = updatedController12.getFilteredMessages(6, 10000).join();
+        System.out.println(result2.right.toString());
+        Assert.assertTrue(result2.right.size() == 1);
+
+        socialFeedA = a.getSocialFeed().join();
+        socialFeedA = socialFeedA.update().join();
+        msgA = new Messenger(a);
+        SocialState socialState = a.getSocialState().join();
+        Set<ChatController> chatsOrig2 = msgA.listChats().join();
+
+        items = socialFeedA.getShared(0, 1000, a.crypto, a.network).join();
+        pairs = a.getFiles(Collections.emptyList()).join();
+
+        Set<ChatController> chatsA = msgA.listChats().join();
+        ChatController chatA = chatsA.stream().collect(Collectors.toList()).get(0);
+        ChatController updatedController20 = msgA.mergeAllUpdates(chatA, socialState).join();
+        Pair<Integer, List<Message.ChatMessage>> resultA = updatedController20.getFilteredMessages(0, 1000).join();
+        System.out.println(resultA.right.toString());
+        Assert.assertTrue(resultA.right.size() == 4);
+
     }
 
     public static void groupSharing(NetworkAccess network, Random random) {
