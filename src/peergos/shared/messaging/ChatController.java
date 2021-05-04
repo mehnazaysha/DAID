@@ -66,10 +66,15 @@ public class ChatController {
                         .orElseGet(() -> getMessage(ref, sourceIndex - 100)));
     }
 
-    private CompletableFuture<MessageRef> hashMessage(MessageEnvelope m) {
+    @JsMethod
+    public CompletableFuture<MessageRef> generateHash(MessageEnvelope m) {
         byte[] raw = m.serialize();
         return hasher.bareHash(raw)
-                .thenApply(MessageRef::new)
+                .thenApply(MessageRef::new);
+    }
+
+    private CompletableFuture<MessageRef> hashMessage(MessageEnvelope m) {
+        return generateHash(m)
                 .thenApply(r -> {
                     cache.put(r, m);
                     return r;
