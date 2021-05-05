@@ -54,7 +54,7 @@ public class ChatController {
     }
 
     @JsMethod
-    public CompletableFuture<MessageEnvelope> getMessage(MessageRef ref, int sourceIndex) {
+    public CompletableFuture<MessageEnvelope> getMessageFromRef(MessageRef ref, int sourceIndex) {
         MessageEnvelope cached = cache.get(ref);
         if (cached != null)
             return Futures.of(cached);
@@ -63,7 +63,7 @@ public class ChatController {
                 .thenCompose(allSigned -> Futures.findFirst(allSigned, s -> hashMessage(s.msg)
                         .thenApply(h -> h.equals(ref) ? Optional.of(s.msg) : Optional.empty())))
                 .thenCompose(resOpt -> resOpt.map(Futures::of)
-                        .orElseGet(() -> getMessage(ref, sourceIndex - 100)));
+                        .orElseGet(() -> getMessageFromRef(ref, sourceIndex - 100)));
     }
 
     @JsMethod

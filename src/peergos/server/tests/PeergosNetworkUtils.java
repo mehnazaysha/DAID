@@ -1697,7 +1697,7 @@ public class PeergosNetworkUtils {
         Assert.assertEquals(controllerB.host().messagesMergedUpto, 5);
         Assert.assertTrue(fromB.payload instanceof ReplyTo);
         MessageRef parentRef = ((ReplyTo) fromB.payload).parent;
-        MessageEnvelope parent = controllerA.getMessage(parentRef, 4).join();
+        MessageEnvelope parent = controllerA.getMessageFromRef(parentRef, 4).join();
         Assert.assertTrue(parent.equals(fromA));
 
         // test setting group properties
