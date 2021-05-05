@@ -1752,10 +1752,10 @@ public class PeergosNetworkUtils {
         controllerA = msgA.sendMessage(controllerA, editMessage).join();
         controllerA = msgA.mergeMessages(controllerA, a.username).join();
         messages = controllerA.getMessages(0, 10).join();
-        Assert.assertEquals(messages.size(), 3);
+        Assert.assertEquals(messages.size(), 4);
         envelope = messages.get(messages.size()-1);
-        ApplicationMessage appMsg = (ApplicationMessage) envelope.payload;
-        String msgContent = ((Text) appMsg.body).inlineText();
+        EditMessage appMsg = (EditMessage) envelope.payload;
+        String msgContent = ((Text) appMsg.content.body).inlineText();
         Assert.assertEquals(msgContent, changedContent);
 
         messageRef = controllerA.generateHash(envelope).join();
@@ -1763,7 +1763,7 @@ public class PeergosNetworkUtils {
         controllerA = msgA.sendMessage(controllerA, delMessage).join();
         controllerA = msgA.mergeMessages(controllerA, a.username).join();
         messages = controllerA.getMessages(0, 10).join();
-        Assert.assertEquals(messages.size(), 4);
+        Assert.assertEquals(messages.size(), 5);
     }
 
     public static void groupSharing(NetworkAccess network, Random random) {
