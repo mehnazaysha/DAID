@@ -220,6 +220,11 @@ public class MultiUserTests {
     }
 
     @Test
+    public void messagingRevokeThenInvite() {
+        PeergosNetworkUtils.messagingRevokeThenInvite(network, random);
+    }
+
+    @Test
     public void messagingVariations() {
         PeergosNetworkUtils.editMessage(network, random);
     }

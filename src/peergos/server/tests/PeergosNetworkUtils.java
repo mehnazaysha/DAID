@@ -1751,6 +1751,56 @@ public class PeergosNetworkUtils {
         Assert.assertTrue(recentA.size() > 0);
     }
 
+    public static void messagingRevokeThenInvite(NetworkAccess network, Random random) {
+        CryptreeNode.setMaxChildLinkPerBlob(10);
+
+        String password = "notagoodone";
+
+        UserContext a = PeergosNetworkUtils.ensureSignedUp("a-" + generateUsername(random), password, network, crypto);
+
+        List<UserContext> shareeUsers = getUserContextsForNode(network, random, 1, Arrays.asList(password));
+        UserContext b = shareeUsers.get(0);
+
+        // friend sharer with others
+        friendBetweenGroups(Arrays.asList(a), shareeUsers);
+
+        Messenger msgA = new Messenger(a);
+        ChatController controllerA = msgA.createChat().join();
+        controllerA = msgA.invite(controllerA, Arrays.asList(b.username), Arrays.asList(b.signer.publicKeyHash)).join();
+        SocialState socialStateA = a.getSocialState().join();
+        SocialFeed socialFeed = b.getSocialFeed().join();
+        List<Pair<SharedItem, FileWrapper>> feed = socialFeed.update().join().getSharedFiles(0, 10).join();
+        socialFeed.setLastSeenIndex(feed.size());
+        int lastSeenIndex = socialFeed.getLastSeenIndex();
+        FileWrapper chatSharedDir = feed.get(feed.size() - 1).right;
+        Messenger msgB = new Messenger(b);
+        ChatController controllerB = msgB.cloneLocallyAndJoin(chatSharedDir).join();
+
+        List<ChatController> chatsB = new ArrayList<>(msgB.listChats().join());
+        controllerB = chatsB.get(0);
+        SocialState socialStateB = b.getSocialState().join();
+        controllerB = msgA.mergeAllUpdates(controllerB, socialStateB).join();
+        List<MessageEnvelope> messagesB = controllerB.getMessages(0, 50).join();
+        Assert.assertEquals(messagesB.size(), 4);
+
+        controllerA = msgA.removeMember(controllerA, b.username).join();
+        controllerA = msgA.invite(controllerA, Arrays.asList(b.username), Arrays.asList(b.signer.publicKeyHash)).join();
+        feed = socialFeed.update().join().getSharedFiles(lastSeenIndex, lastSeenIndex + 10).join();
+        Assert.assertEquals(feed.size(), 1);
+
+        chatSharedDir = feed.get(feed.size() - 1).right;
+        msgB = new Messenger(b);
+        controllerB = msgB.cloneLocallyAndJoin(chatSharedDir).join();//fails here
+
+        chatsB = new ArrayList<>(msgB.listChats().join());
+        controllerB = chatsB.get(0);
+        socialStateB = b.getSocialState().join();
+        controllerB = msgA.mergeAllUpdates(controllerB, socialStateB).join();
+        messagesB = controllerB.getMessages(0, 50).join();
+        Assert.assertEquals(messagesB.size(), 6);//?
+
+    }
+
     public static void editMessage(NetworkAccess network, Random random) {
         CryptreeNode.setMaxChildLinkPerBlob(10);
 
